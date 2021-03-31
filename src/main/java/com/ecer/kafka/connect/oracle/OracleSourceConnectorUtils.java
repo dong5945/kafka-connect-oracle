@@ -176,6 +176,7 @@ public class OracleSourceConnectorUtils{
       while(mineTableColsResultSet.next()){
         String columnName = mineTableColsResultSet.getString(COLUMN_NAME_FIELD);
         Boolean nullable = mineTableColsResultSet.getString(NULLABLE_FIELD).equals("Y") ? true:false;
+        nullable = true;
         String dataType = mineTableColsResultSet.getString(DATA_TYPE_FIELD);
         if (dataType.contains(TIMESTAMP_TYPE)) dataType=TIMESTAMP_TYPE;
         int dataLength = mineTableColsResultSet.getInt(DATA_LENGTH_FIELD);
@@ -392,6 +393,7 @@ public class OracleSourceConnectorUtils{
               value = dataMap.get(col);               
             }
             dataStruct.put(col, value.equals(NULL_FIELD) ? null:reSetValue(value, tabColsMap.get(keyTabCol).getColumnSchema()));
+
           }
         }
 
@@ -428,7 +430,7 @@ public class OracleSourceConnectorUtils{
     }        
 
     private Object reSetValue(String value,Schema colSchema){
-      
+      log.info(value+"="+colSchema);
       Object o;
       switch(colSchema.toString()){
         case "Schema{INT8}":
