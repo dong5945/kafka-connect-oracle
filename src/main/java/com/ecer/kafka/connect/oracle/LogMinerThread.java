@@ -297,7 +297,6 @@ public class LogMinerThread implements Runnable {
               .put(TIMESTAMP_FIELD, row.getTimestamp())
               .put(SQL_REDO_FIELD, row.getSqlRedo())
               .put(OPERATION_FIELD, row.getOperation())
-              .put(primarykey,row.getPrimarykey())
               .put(DATA_ROW_FIELD, dataSchemaStruct.getDataStruct())
               .put(BEFORE_DATA_ROW_FIELD, dataSchemaStruct.getBeforeDataStruct());
     return valueStruct;
