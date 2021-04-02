@@ -16,8 +16,9 @@ public class DMLRow{
     private String sqlRedo = null;
     private String topic = null;
     private String rollback = null;
+    private String primarykey = null;
 
-    public DMLRow(String xid,Long scn,Long commitScn,Timestamp timestamp,String operation,String segOwner,String segName,String rowId,String sqlRedo,String topic,Timestamp commitTimeStamp,String rollback){
+    public DMLRow(String xid,Long scn,Long commitScn,Timestamp timestamp,String operation,String segOwner,String segName,String rowId,String sqlRedo,String topic,Timestamp commitTimeStamp,String rollback,String primarykey){
         this.xid = xid;
         this.scn = scn;
         this.commitScn = commitScn;
@@ -30,6 +31,7 @@ public class DMLRow{
         this.topic = topic;
         this.commitTimestamp = commitTimeStamp;
         this.rollback = rollback;
+        this.primarykey = primarykey;
     }
 
     public String getXid(){
@@ -127,12 +129,19 @@ public class DMLRow{
     public void setRollback(String rollback){
         this.rollback = rollback;
     }
-    
+
+    public String getPrimarykey() {
+        return primarykey;
+    }
+
+    public void setPrimarykey(String primarykey) {
+        this.primarykey = primarykey;
+    }
     @Override
     public String toString(){
 		return "LogMinerRow [xid=" + xid + ", scn=" + scn + ", timestamp=" + timestamp + ", operation="
 				+ operation + ", segOwner=" + segOwner + ", segName=" + segName + ", rowId=" + rowId
-				+ ", sqlRedo=" + sqlRedo +"]";
+				+ ", sqlRedo=" + sqlRedo +", primarKey="+primarykey+"]";
     }
 
 }

@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.alibaba.fastjson.JSONObject;
+import com.alibaba.fastjson.TypeReference;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -13,7 +15,8 @@ import org.slf4j.LoggerFactory;
 
 public class OracleSourceConnector extends SourceConnector {
   private static Logger log = LoggerFactory.getLogger(OracleSourceConnector.class);
-  private OracleSourceConnectorConfig config;      
+  private OracleSourceConnectorConfig config;
+  public static Map tableKeys;
   @Override
   public String version() {
     return VersionUtil.getVersion();
@@ -21,9 +24,13 @@ public class OracleSourceConnector extends SourceConnector {
 
   @Override
   public void start(Map<String, String> map) {
-    config = new OracleSourceConnectorConfig(map);    
-    
-    
+    config = new OracleSourceConnectorConfig(map);
+
+    try {
+      tableKeys = JSONObject.parseObject(config.getTableKey(), new TypeReference<Map<String, Object>>(){});
+    } catch (Exception e) {
+      log.error("解析table_key失败",e);
+    }
     String dbName = config.getDbName();    
     if (dbName.equals("")){
       throw new ConnectException("Missing Db Name property");

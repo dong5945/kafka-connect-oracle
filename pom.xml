@@ -31,7 +31,12 @@
             <groupId>com.github.jsqlparser</groupId>
             <artifactId>jsqlparser</artifactId>
             <version>1.2</version>
-        </dependency>    
+        </dependency>
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>fastjson</artifactId>
+            <version>1.2.32</version>
+        </dependency>
     </dependencies>
 
     <build>

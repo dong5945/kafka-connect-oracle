@@ -1,26 +1,5 @@
 package com.ecer.kafka.connect.oracle;
 
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.BEFORE_DATA_ROW_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.COMMITSCN_POSITION_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.COMMIT_SCN_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.CSF_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.DATA_ROW_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.DOT;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.LOG_MINER_OFFSET_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.OPERATION_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.POSITION_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.ROWID_POSITION_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.ROW_ID_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.SCN_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.SEG_OWNER_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.SQL_REDO_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.TABLE_NAME_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.TEMPORARY_TABLE;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.TIMESTAMP_FIELD;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.ORA_DESUPPORT_CM_VERSION;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.OPERATION_DDL;
-import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.DDL_TOPIC_POSTFIX;
-
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -32,6 +11,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import com.alibaba.fastjson.JSONObject;
 import com.ecer.kafka.connect.oracle.models.Data;
 import com.ecer.kafka.connect.oracle.models.DataSchemaStruct;
 
@@ -45,6 +25,8 @@ import org.slf4j.LoggerFactory;
 import net.sf.jsqlparser.JSQLParserException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import static com.ecer.kafka.connect.oracle.OracleConnectorSchema.*;
 
 /**
  *  
@@ -81,7 +63,8 @@ public class OracleSourceTask extends SourceTask {
   BlockingQueue<SourceRecord> sourceRecordMq = new LinkedBlockingQueue<>();    
   LogMinerThread tLogMiner;
   ExecutorService executor = Executors.newFixedThreadPool(1);
-   
+  Map tableValue = new HashMap();
+  Map keyValue = new HashMap();
   @Override
   public String version() {
     return VersionUtil.getVersion();
@@ -261,8 +244,33 @@ public class OracleSourceTask extends SourceTask {
           topic = config.getTopic().equals("") ? (config.getDbNameAlias()+DOT+row.getSegOwner()+DOT+(operation.equals(OPERATION_DDL) ? DDL_TOPIC_POSTFIX : segName)).toUpperCase() : topic;
           //log.info(String.format("Fetched %s rows from database %s ",ix,config.getDbNameAlias())+" "+row.getTimeStamp()+" "+row.getSegName()+" "+row.getScn()+" "+commitScn);
           if (ix % 100 == 0) log.info(String.format("Fetched %s rows from database %s ",ix,config.getDbNameAlias())+" "+row.getTimeStamp());
-          dataSchemaStruct = utils.createDataSchema(segOwner, segName, sqlRedo,operation); 
-          if (operation.equals(OPERATION_DDL)) row.setSegName(DDL_TOPIC_POSTFIX);     
+          dataSchemaStruct = utils.createDataSchema(segOwner, segName, sqlRedo,operation);
+
+          if (operation.equals(OPERATION_DDL)) row.setSegName(DDL_TOPIC_POSTFIX);
+
+
+          if(operation.equals(OPERATION_UPDATE)){
+            // 根据RowId查找对应的主键数据
+            String keys = (String)OracleSourceConnector.tableKeys.get(segName);
+            if(keys!=null) {
+              String sql = String.format(OracleConnectorSQL.SELECT_KEY_FROM_TABLE, keys,segName,rowId);
+              log.info("查找主键数据SQL {}", sql);
+              PreparedStatement ps = dbConn.prepareCall(sql);
+              ResultSet rs = ps.executeQuery();
+              while (rs.next()) {
+                String strs [] = keys.split(",");
+                for(int i = 0;i<strs.length;i++){
+                  keyValue.put(strs[i],rs.getString(i+1));
+                }
+              }
+              rs.close();
+              ps.close();
+            }
+            tableValue.put("keyValue",keyValue);
+            tableValue.put("sqlRedo",sqlRedo);
+            row.setSqlRedo(JSONObject.toJSONString(tableValue));
+            tableValue.clear();
+          }
           /**
            * Issue 68
            * 
@@ -316,6 +324,7 @@ public class OracleSourceTask extends SourceTask {
   }
 
   private Struct setValueV2(Data row,DataSchemaStruct dataSchemaStruct) {
+    log.info("row.getOperation(){}",row.getOperation());
     Struct valueStruct = new Struct(dataSchemaStruct.getDmlRowSchema())
               .put(SCN_FIELD, row.getScn())
               .put(SEG_OWNER_FIELD, row.getSegOwner())
